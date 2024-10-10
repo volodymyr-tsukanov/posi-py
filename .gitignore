@@ -1,0 +1,19 @@
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Log files
+*.log
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+*.kate-swp
