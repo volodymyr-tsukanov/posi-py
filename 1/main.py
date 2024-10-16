@@ -7,6 +7,7 @@ Created on Wed Oct  9 14:24:35 2024
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 
 #zad1.2
@@ -106,4 +107,21 @@ axs[1,1].axhline(0, color='black', lw=0.5, ls='--')
 axs[1,1].axvline(0, color='black', lw=0.5, ls='--')
 axs[1,1].grid()
 plt.tight_layout()
+plt.show()
+
+
+#zad1.4
+data_corr = data_csv.corr()
+
+cmap = LinearSegmentedColormap.from_list("green_red", ["green", "white", "red"])
+
+plt.figure(figsize=(14, 14))
+plt.title('Corr-Mtx', fontsize=16)
+plt.matshow(data_corr, fignum=1, cmap=cmap)
+plt.colorbar()  #right bar
+plt.xticks(range(len(data_corr.columns)), data_corr.columns, rotation=45)   #axis labels
+plt.yticks(range(len(data_corr.columns)), data_corr.columns)
+for (i, j), val in np.ndenumerate(data_corr):   #data labels
+    plt.text(j, i, f'{val:.2f}', ha='center', va='center', color='black')
+plt.grid(False)  #disable gridlines
 plt.show()
