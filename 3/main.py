@@ -10,10 +10,12 @@ random_state=221, shuffle = False
 """
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier as kNN
 from sklearn.svm import SVC as SVM
 from sklearn.tree import DecisionTreeClassifier as DT
+from sklearn.tree import plot_tree
 from sklearn.metrics import confusion_matrix, accuracy_score, f1_score
 
 def qualitative_to_0_1(data, column, value_to_be_1):
@@ -50,5 +52,6 @@ for model in models:
     print(accuracy_score(y_test,y_pred))
     print(f1_score(y_test,y_pred))
 
-#plt.figure(figsize=(20,10))
-#tree_vis = plot_tree(models[2],feature_names=data_csv.columns,class_names=['N','Y'],fontsize=12)
+plt.figure(figsize=(20,10))
+tree_vis = plot_tree(models[2],feature_names=data_csv.columns,class_names=['N','Y'],fontsize=12)
+#tree_vis = plot_tree(model, feature_names=data.columns[:-1].to_list(), class_names=['N','Y'], fontsize = 20)
