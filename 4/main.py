@@ -96,7 +96,7 @@ data_csv = pd.read_csv("voice_extracted_features.csv", sep=",")
 
 data = qualitative_to_0_1(data_csv, 'label', 'female')
 features = list(data.columns)
-vals = data.values.astype(np.float)
+vals = data.values.astype(np.float64)
 # Separate features (X) and target variable (y)
 X = vals[:, :-1]
 y = vals[:, -1]
