@@ -3,6 +3,8 @@
 Created on Wed Nov 6 15:16:24 2024
 
 @author: volodymyr-tsukanov
+
+needs:  pip install keras tensorflow pydot
 """
 import pandas as pd
 
@@ -12,7 +14,6 @@ from keras.models import Sequential  # Import Sequential model for neural networ
 from keras.layers import Input, Dense  # Import layers for input and dense (fully connected) layers
 from keras.optimizers import Adam, RMSprop, SGD  # Import optimizers
 from keras.utils import plot_model  # Import utility for visualizing the model
-
 
 
 ### Load csv
