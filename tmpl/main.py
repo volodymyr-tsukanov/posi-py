@@ -684,3 +684,197 @@ model_evaluation = scale_transform_fit_predict_eval(
 
 print(f"Model Accuracy: {model_evaluation.accuracy:.2%}")
 print(f"Model F1 Score: {model_evaluation.f1:.2%}")
+
+
+# keras Model Building and Modification Functions
+def create_sequential_model(
+    input_shape: Tuple,
+    layers: List[Dict],
+    activation: str = 'relu',
+    optimizer: Union[str, keras.optimizers.Optimizer] = 'adam',
+    loss: Union[str, keras.losses.Loss] = 'sparse_categorical_crossentropy',
+    metrics: List[str] = ['accuracy'],
+    dropout_rate: float = 0.0,
+    use_batch_norm: bool = False
+) -> keras.Model:
+    """
+    Creates a sequential Keras model with advanced configuration options.
+
+    Args:
+        input_shape: Tuple specifying the input shape
+        layers: List of layer configurations
+        activation: Default activation function
+        optimizer: Model optimizer
+        loss: Loss function
+        metrics: List of metrics to track
+        dropout_rate: Global dropout rate (if > 0)
+        use_batch_norm: Whether to add batch normalization after dense layers
+
+    Returns:
+        Compiled Keras sequential model
+
+    Example:
+        layers = [
+            {'type': 'Dense', 'units': 64, 'activation': 'relu'},
+            {'type': 'Dense', 'units': 32},
+            {'type': 'Dense', 'units': 10, 'activation': 'softmax'}
+        ]
+        model = create_sequential_model((28, 28, 1), layers)
+    """
+    try:
+        model = keras.Sequential()
+        model.add(keras.layers.Input(shape=input_shape))
+
+        supported_layers = {
+            'Dense': keras.layers.Dense,
+            'Conv2D': keras.layers.Conv2D,
+            'MaxPooling2D': keras.layers.MaxPooling2D,
+            'Flatten': keras.layers.Flatten,
+            'Dropout': keras.layers.Dropout
+        }
+
+        for layer_config in layers:
+            # Validate layer configuration
+            if 'type' not in layer_config:
+                raise ValueError("Each layer config must contain 'type'")
+            
+            layer_type = layer_config.pop('type')
+            if layer_type not in supported_layers:
+                raise ValueError(f"Unsupported layer type: {layer_type}")
+
+            # Add layer
+            if layer_type == 'Flatten':
+                model.add(keras.layers.Flatten())
+            else:
+                # Set default activation for Dense layers if not specified
+                if layer_type == 'Dense' and 'activation' not in layer_config:
+                    layer_config['activation'] = activation
+
+                model.add(supported_layers[layer_type](**layer_config))
+
+                # Add batch normalization if requested
+                if use_batch_norm and layer_type in ['Dense', 'Conv2D']:
+                    model.add(keras.layers.BatchNormalization())
+
+                # Add dropout if specified
+                if dropout_rate > 0 and layer_type in ['Dense', 'Conv2D']:
+                    model.add(keras.layers.Dropout(dropout_rate))
+
+        # Compile model
+        model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics
+        )
+
+        return model
+
+    except Exception as e:
+        raise Exception(f"Error creating model: {str(e)}")
+
+# Example usage
+if __name__ == "__main__":
+    # Define model architecture
+    layers = [
+        {'type': 'Conv2D', 'filters': 32, 'kernel_size': 3, 'activation': 'relu'},
+        {'type': 'MaxPooling2D', 'pool_size': 2},
+        {'type': 'Flatten'},
+        {'type': 'Dense', 'units': 128},
+        {'type': 'Dense', 'units': 10, 'activation': 'softmax'}
+    ]
+
+    # Create model with batch normalization and dropout
+    model = create_sequential_model(
+        input_shape=(28, 28, 1),
+        layers=layers,
+        dropout_rate=0.3,
+        use_batch_norm=True
+    )
+
+    # Display model summary
+    model.summary()
+
+def create_modified_model(base_model, new_layers=None, trainable=False):
+    """
+    Creates a modified model by adding new layers and controlling trainability
+    
+    Args:
+        base_model: Original Keras model
+        new_layers: List of layers to add
+        trainable: Whether to make base model layers trainable
+    
+    Returns:
+        Modified Keras model
+    """
+    # Set trainability of base model
+    base_model.trainable = trainable
+    
+    # Get the input layer
+    inputs = keras.Input(shape=base_model.input_shape[1:])
+    
+    # Pass input through base model
+    x = base_model(inputs)
+    
+    # Add new layers if specified
+    if new_layers:
+        for layer in new_layers:
+            x = layer(x)
+            
+    # Create new model
+    model = keras.Model(inputs, x)
+    return model
+
+def freeze_layers(model, layers_to_freeze):
+    """
+    Freezes specified layers in the model
+    
+    Args:
+        model: Keras model
+        layers_to_freeze: List of layer indices or names to freeze
+    """
+    for layer in layers_to_freeze:
+        if isinstance(layer, int):
+            model.layers[layer].trainable = False
+        else:
+            model.get_layer(layer).trainable = False
+    return model
+
+def clone_and_modify_model(original_model, modifications):
+    """
+    Clones a model and applies modifications
+    
+    Args:
+        original_model: Original Keras model
+        modifications: Dict of layer names and new configurations
+    
+    Returns:
+        Modified clone of original model
+    """
+    cloned_model = keras.models.clone_model(original_model)
+    cloned_model.set_weights(original_model.get_weights())
+    
+    for layer_name, config in modifications.items():
+        layer = cloned_model.get_layer(layer_name)
+        for key, value in config.items():
+            setattr(layer, key, value)
+            
+    return cloned_model
+
+## Usage
+### Add new layers to existing model
+new_layers = [
+    keras.layers.Dense(256, activation='relu'),
+    keras.layers.Dropout(0.5),
+    keras.layers.Dense(10, activation='softmax')
+]
+modified_model = create_modified_model(base_model, new_layers)
+
+### Freeze specific layers
+freeze_layers(model, [0, 1, 2])  # Freeze first three layers
+
+### Modify layer configurations
+modifications = {
+    'dense_1': {'activation': 'relu', 'units': 128},
+    'dropout_1': {'rate': 0.3}
+}
+modified_model = clone_and_modify_model(original_model, modifications)
