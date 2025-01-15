@@ -860,6 +860,7 @@ def clone_and_modify_model(original_model, modifications):
             
     return cloned_model
 
+## Example Tasks
 def create_binary_classifier(
     input_dim: int,
     hidden_layers: List[int] = [64, 32],
@@ -1002,18 +1003,18 @@ def model_evaluation_suite(model: keras.Model,
     
     return evaluation
 
-# Example usage
+### Example usage
 if __name__ == "__main__":
-    # Binary classifier example
+    #### Binary classifier example
     binary_model = create_binary_classifier(input_dim=20)
     
-    # CNN example
+    #### CNN example
     cnn_model = create_mnist_cnn()
     
-    # Autoencoder example
+    #### Autoencoder example
     autoencoder, encoder = create_autoencoder(input_dim=784)  # for MNIST
     
-    # Add regularization to existing model
+    #### Add regularization to existing model
     regularized_model = add_regularization(binary_model)
 
 ## Usage
