@@ -1035,3 +1035,208 @@ modifications = {
     'dropout_1': {'rate': 0.3}
 }
 modified_model = clone_and_modify_model(original_model, modifications)
+
+
+
+
+#TMP
+Based on the task requirements and provided information, I'll help create a solution. First, let me ask a few clarifying questions:
+
+1. Should we handle the MNIST and accent classification tasks separately or combine them?
+2. For the accent classification, do you want to use simple neural networks or convolutional networks?
+3. Would you like to see the model architectures before implementation?
+
+Here's a proposed solution for both tasks:
+
+```python
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from tensorflow import keras
+from tensorflow.keras import layers, Model, Sequential
+from tensorflow.keras.datasets import mnist
+
+# Part 1: MNIST with parallel pathways
+def create_resnet_block(x, filters):
+    """Create a ResNet block"""
+    shortcut = x
+    x = layers.Conv2D(filters, (3, 3), padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
+    x = layers.Conv2D(filters, (3, 3), padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Add()([shortcut, x])
+    return layers.Activation('relu')(x)
+
+def create_vgg_block(x, filters):
+    """Create a VGG block"""
+    x = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(x)
+    x = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(x)
+    x = layers.MaxPooling2D((2, 2))(x)
+    return x
+
+def create_mnist_model():
+    """Create parallel pathway model for MNIST"""
+    input_layer = layers.Input(shape=(28, 28, 1))
+    
+    # ResNet pathway 1
+    resnet1 = layers.Conv2D(32, (3, 3), padding='same')(input_layer)
+    resnet1 = create_resnet_block(resnet1, 32)
+    resnet1 = layers.MaxPooling2D((2, 2))(resnet1)
+    resnet1 = layers.Flatten()(resnet1)
+    
+    # ResNet pathway 2
+    resnet2 = layers.Conv2D(64, (3, 3), padding='same')(input_layer)
+    resnet2 = create_resnet_block(resnet2, 64)
+    resnet2 = layers.MaxPooling2D((2, 2))(resnet2)
+    resnet2 = layers.Flatten()(resnet2)
+    
+    # VGG pathway
+    vgg = create_vgg_block(input_layer, 32)
+    vgg = create_vgg_block(vgg, 64)
+    vgg = layers.Flatten()(vgg)
+    
+    # Merge pathways
+    merged = layers.Concatenate()([resnet1, resnet2, vgg])
+    merged = layers.Dense(128, activation='relu')(merged)
+    merged = layers.Dense(32, activation='relu')(merged)
+    output = layers.Dense(10, activation='softmax')(merged)
+    
+    model = Model(inputs=input_layer, outputs=output)
+    model.compile(optimizer='adam',
+                 loss='sparse_categorical_crossentropy',
+                 metrics=['accuracy'])
+    return model
+
+# Part 2: Accent Classification
+def prepare_accent_data(file_path):
+    """Prepare accent dataset with PCA"""
+    # Load and preprocess data
+    df = pd.read_csv(file_path)
+    
+    # Handle outliers
+    for col in df.select_dtypes(include=[np.number]).columns:
+        mean = df[col].mean()
+        std = df[col].std()
+        df[col] = df[col].mask(abs(df[col] - mean) > 3*std, mean)
+    
+    # Split features and target
+    X = df.drop('accent', axis=1).values
+    y = df['accent'].values
+    
+    # Scale features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # PCA with 80% explained variance
+    pca = PCA(n_components=0.8)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    return X_pca, y
+
+def create_accent_models(input_shape, num_classes):
+    """Create three different models for accent classification"""
+    models = []
+    
+    # Model 1: Simple Dense
+    model1 = Sequential([
+        layers.Dense(64, activation='relu', input_shape=input_shape),
+        layers.Dropout(0.3),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(num_classes, activation='softmax')
+    ])
+    
+    # Model 2: Deeper Dense
+    model2 = Sequential([
+        layers.Dense(128, activation='relu', input_shape=input_shape),
+        layers.Dropout(0.3),
+        layers.Dense(64, activation='relu'),
+        layers.Dropout(0.3),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(num_classes, activation='softmax')
+    ])
+    
+    # Model 3: Wide Dense
+    model3 = Sequential([
+        layers.Dense(256, activation='relu', input_shape=input_shape),
+        layers.Dropout(0.5),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(num_classes, activation='softmax')
+    ])
+    
+    for model in [model1, model2, model3]:
+        model.compile(optimizer='adam',
+                     loss='sparse_categorical_crossentropy',
+                     metrics=['accuracy'])
+    
+    return [model1, model2, model3]
+
+def cross_validate_models(X, y, models, n_splits=5):
+    """Perform k-fold cross-validation"""
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    results = []
+    
+    for i, model in enumerate(models):
+        fold_scores = []
+        for train_idx, val_idx in kf.split(X):
+            X_train, X_val = X[train_idx], X[val_idx]
+            y_train, y_val = y[train_idx], y[val_idx]
+            
+            model.fit(X_train, y_train, epochs=10, verbose=0)
+            score = model.evaluate(X_val, y_val, verbose=0)[1]
+            fold_scores.append(score)
+            
+        results.append({
+            'model_id': i+1,
+            'scores': fold_scores,
+            'mean_score': np.mean(fold_scores)
+        })
+        
+    return results
+
+# Main execution
+if __name__ == "__main__":
+    # MNIST part
+    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+    X_train = X_train.reshape(-1, 28, 28, 1) / 255.0
+    X_test = X_test.reshape(-1, 28, 28, 1) / 255.0
+    
+    mnist_model = create_mnist_model()
+    history = mnist_model.fit(X_train, y_train, 
+                            validation_data=(X_test, y_test),
+                            epochs=5, batch_size=32)
+    
+    # Plot MNIST results
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Training')
+    plt.plot(history.history['val_accuracy'], label='Validation')
+    plt.title('Model Accuracy')
+    plt.legend()
+    
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Training')
+    plt.plot(history.history['val_loss'], label='Validation')
+    plt.title('Model Loss')
+    plt.legend()
+    plt.show()
+    
+    # Accent classification part
+    X_pca, y = prepare_accent_data('accent.csv')
+    models = create_accent_models((X_pca.shape[1],), len(np.unique(y)))
+    results = cross_validate_models(X_pca, y, models)
+    
+    # Print results
+    for result in results:
+        print(f"Model {result['model_id']}:")
+        print(f"Mean accuracy: {result['mean_score']:.4f}")
+        print(f"Fold scores: {result['scores']}\n")
+```
+
+Would you like me to:
+1. Add more detailed comments explaining each part?
+2. Include additional visualization options?
+3. Add more sophisticated model architectures?
