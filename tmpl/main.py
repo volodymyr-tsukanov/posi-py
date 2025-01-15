@@ -561,3 +561,126 @@ pipeline_accuracy = pipe.score(X_test, y_test)
 
 ### Visualize PCA components
 visualize_pca_components(X_train, y_train, labels=['Mężczyzna', 'Kobieta'])
+
+
+def data_split(data: pd.DataFrame, y_col_name: str, **train_test_split_kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Split data into train and test sets
+    
+    Args:
+        data: Dataset
+        y_col_name: Name of the column containing the dependent feature
+        **train_test_split_kwargs: Keyword arguments for the train_test_split function
+    
+    Returns:
+        tuple: (x_train, x_test, y_train, y_test)
+    """
+    y = data[y_col_name].values.astype(np.float64)
+    x = data.drop(columns=[y_col_name]).values.astype(np.float64)
+    return train_test_split(x, y, **train_test_split_kwargs)
+
+def data_prepare_multivalue(data: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """Converts a column with multiple values to one-hot encoding
+    
+    Args:
+        data: Dataset
+        col_name: Name of the column to be converted to one-hot encoding
+    
+    Returns:
+        pd.DataFrame: Dataset with the column converted to one-hot encoding
+    """
+    cat_feature = pd.Categorical(data[col_name])
+    one_hot = pd.get_dummies(cat_feature)
+    data = pd.concat([data, one_hot], axis=1)
+    data = data.drop(columns=[col_name])
+    return data
+
+class NoTransform(BaseEstimator, TransformerMixin):
+    """Dummy transformer that does nothing"""
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X, y=None):
+        return X
+
+class NoScaler(BaseEstimator):
+    """Dummy scaler that does nothing"""
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X, y=None):
+        return X
+
+@dataclass
+class ModelData:
+    """Dataclass to store model data"""
+    model: object
+    y_pred: np.ndarray
+    confusion_matrix: np.ndarray
+    accuracy: float
+    f1: np.float64
+
+def scale_transform_fit_predict_eval(model: object, scaler: object, transformer: object, 
+                                   x_train: np.ndarray, y_train: np.ndarray, 
+                                   x_test: np.ndarray, y_test: np.ndarray) -> ModelData:
+    """Scale, transform, fit, predict, and evaluate a model
+    
+    Args:
+        model: Model to be used
+        scaler: Scaler to be used
+        transformer: Transformer to be used
+        x_train: Independent features of the training set
+        y_train: Dependent feature of the training set
+        x_test: Independent features of the test set
+        y_test: Dependent feature of the test set
+    
+    Returns:
+        ModelData: Model data
+    """
+    pipe = Pipeline(
+        [
+            ['scaler', scaler if scaler else NoScaler()],
+            ['transformer', transformer if transformer else NoTransform()],
+            ['model', model]
+        ]
+    )
+    pipe.fit(x_train, y_train)
+    y_pred = pipe.predict(x_test)
+    return ModelData(
+        model=pipe,
+        y_pred=y_pred,
+        confusion_matrix=confusion_matrix(y_test, y_pred),
+        accuracy=accuracy_score(y_test, y_pred),
+        f1=f1_score(y_test, y_pred, average='binary' if len(set(y_test)) == 2 else 'weighted')
+    )
+
+## Usage
+### Data Splitting with custom parameters
+data_csv = pd.read_csv("practice_lab_2.csv", sep=";")
+x_train, x_test, y_train, y_test = data_split(
+    data_csv, 
+    'Loan_Status', 
+    test_size=0.2, 
+    random_state=42
+)
+
+### Multi-value categorical data preparation
+data_encoded = data_prepare_multivalue(data_csv, 'Property_Area')
+
+### Pipeline with NoTransform and NoScaler
+basic_pipeline = Pipeline([
+    ['scaler', NoScaler()],
+    ['transformer', NoTransform()],
+    ['model', kNN()]
+])
+
+### Complete model evaluation pipeline
+model_evaluation = scale_transform_fit_predict_eval(
+    model=kNN(),
+    scaler=StandardScaler(),
+    transformer=PCA(n_components=0.95),
+    x_train=x_train,
+    y_train=y_train,
+    x_test=x_test,
+    y_test=y_test
+)
+
+print(f"Model Accuracy: {model_evaluation.accuracy:.2%}")
+print(f"Model F1 Score: {model_evaluation.f1:.2%}")
