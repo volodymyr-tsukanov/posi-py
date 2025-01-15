@@ -860,6 +860,162 @@ def clone_and_modify_model(original_model, modifications):
             
     return cloned_model
 
+def create_binary_classifier(
+    input_dim: int,
+    hidden_layers: List[int] = [64, 32],
+    dropout_rate: float = 0.2
+) -> keras.Model:
+    """
+    Creates a simple binary classifier with specified architecture.
+    Common interview task: Create a binary classifier with variable hidden layers.
+    
+    Args:
+        input_dim: Input feature dimension
+        hidden_layers: List of units in each hidden layer
+        dropout_rate: Dropout rate for regularization
+    
+    Returns:
+        Compiled binary classification model
+    """
+    model = keras.Sequential()
+    
+    # Input layer
+    model.add(keras.layers.Dense(hidden_layers[0], input_dim=input_dim, activation='relu'))
+    model.add(keras.layers.Dropout(dropout_rate))
+    
+    # Hidden layers
+    for units in hidden_layers[1:]:
+        model.add(keras.layers.Dense(units, activation='relu'))
+        model.add(keras.layers.Dropout(dropout_rate))
+    
+    # Output layer
+    model.add(keras.layers.Dense(1, activation='sigmoid'))
+    
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+def create_mnist_cnn() -> keras.Model:
+    """
+    Creates a CNN for MNIST classification.
+    Common interview task: Implement a CNN for image classification.
+    
+    Returns:
+        Compiled CNN model for MNIST
+    """
+    model = keras.Sequential([
+        keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+        keras.layers.MaxPooling2D((2, 2)),
+        keras.layers.Conv2D(64, (3, 3), activation='relu'),
+        keras.layers.MaxPooling2D((2, 2)),
+        keras.layers.Flatten(),
+        keras.layers.Dense(64, activation='relu'),
+        keras.layers.Dense(10, activation='softmax')
+    ])
+    
+    model.compile(optimizer='adam',
+                 loss='sparse_categorical_crossentropy',
+                 metrics=['accuracy'])
+    return model
+
+def add_regularization(model: keras.Model, 
+                      l1_factor: float = 0.01, 
+                      l2_factor: float = 0.01) -> keras.Model:
+    """
+    Adds L1 and L2 regularization to Dense layers.
+    Common interview task: Implement regularization to prevent overfitting.
+    
+    Args:
+        model: Original model
+        l1_factor: L1 regularization factor
+        l2_factor: L2 regularization factor
+    
+    Returns:
+        Model with added regularization
+    """
+    for layer in model.layers:
+        if isinstance(layer, keras.layers.Dense):
+            layer.kernel_regularizer = keras.regularizers.l1_l2(l1=l1_factor, l2=l2_factor)
+    
+    # Recompile model
+    model.compile(optimizer=model.optimizer,
+                 loss=model.loss,
+                 metrics=model.metrics)
+    return model
+
+def create_autoencoder(
+    input_dim: int,
+    encoding_dim: int = 32,
+    activation: str = 'relu'
+) -> Tuple[keras.Model, keras.Model]:
+    """
+    Creates an autoencoder model.
+    Common interview task: Implement dimensionality reduction using autoencoders.
+    
+    Args:
+        input_dim: Input dimension
+        encoding_dim: Dimension of encoded representation
+        activation: Activation function
+    
+    Returns:
+        Tuple of (autoencoder, encoder) models
+    """
+    # Encoder
+    encoder = keras.Sequential([
+        keras.layers.Dense(encoding_dim, activation=activation, input_shape=(input_dim,))
+    ])
+    
+    # Decoder
+    decoder = keras.Sequential([
+        keras.layers.Dense(input_dim, activation='sigmoid')
+    ])
+    
+    # Autoencoder
+    autoencoder = keras.Sequential([encoder, decoder])
+    autoencoder.compile(optimizer='adam', loss='mse')
+    
+    return autoencoder, encoder
+
+def model_evaluation_suite(model: keras.Model, 
+                         X_test: np.ndarray, 
+                         y_test: np.ndarray) -> Dict:
+    """
+    Comprehensive model evaluation.
+    Common interview task: Implement model evaluation metrics.
+    
+    Args:
+        model: Trained model
+        X_test: Test features
+        y_test: Test labels
+    
+    Returns:
+        Dictionary of evaluation metrics
+    """
+    y_pred = model.predict(X_test)
+    y_pred_classes = np.argmax(y_pred, axis=1) if y_pred.shape[1] > 1 else (y_pred > 0.5).astype(int)
+    
+    evaluation = {
+        'test_loss': model.evaluate(X_test, y_test)[0],
+        'test_accuracy': model.evaluate(X_test, y_test)[1],
+        'predictions': y_pred,
+        'predicted_classes': y_pred_classes
+    }
+    
+    return evaluation
+
+# Example usage
+if __name__ == "__main__":
+    # Binary classifier example
+    binary_model = create_binary_classifier(input_dim=20)
+    
+    # CNN example
+    cnn_model = create_mnist_cnn()
+    
+    # Autoencoder example
+    autoencoder, encoder = create_autoencoder(input_dim=784)  # for MNIST
+    
+    # Add regularization to existing model
+    regularized_model = add_regularization(binary_model)
+
 ## Usage
 ### Add new layers to existing model
 new_layers = [
